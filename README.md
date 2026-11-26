@@ -1,21 +1,73 @@
-# RunIt app: shipped, measured and recovered (RunIt Weekend)
+# RunIt
 
-A small Python web app, containerised with Docker, deployed by a GitHub Actions pipeline, and run with the basics of reliability engineering.
+A small Python web app packaged with Docker. It includes a health endpoint, a basic availability smoke check, and a rollback exercise.
 
 ## Live app
-https://YOUR-APP-URL
 
-## Architecture
-GitHub push → GitHub Actions (build image, push to GitHub Container Registry, deploy) → Azure Container Apps (or Render) → users.
+[Open RunIt on Azure Container Apps](https://runit-app.agreeablepond-d459ef37.northeurope.azurecontainerapps.io)
 
-## SLO
-**99.5% of requests to the home page succeed (HTTP 200), measured over 30 days.** That error budget is about 3.6 hours a month. `check.sh` is a quick spot check, not the SLO measurement itself: 20 requests are too few to measure 99.5%, so it raises the alarm when fewer than 19 of 20 succeed.
+![RunIt running on Azure Container Apps](image%20with%20container%20app.png)
 
-## Health check
-`GET /health` returns `{"status": "ok"}` while the process is running. The Dockerfile's HEALTHCHECK uses it, so `docker ps` shows the container as healthy or unhealthy. It only proves the process answers: the incident drill shows it can stay green while every user gets an error.
+## Certificate
 
-## How to deploy
-Push to `main`. The workflow in `.github/workflows/deploy.yml` builds, pushes and deploys. To roll back: `git revert <bad commit>` and push.
+[![RunIt Weekend certificate badge](skill-sch-certificate.png)](https://skill-sch.com/certificate/runit-harden-b997fd8ea1cd)
 
-## Incident drill
-I shipped a bad release on purpose, detected it with `check.sh` and the logs, rolled back, and wrote [postmortem.md](postmortem.md). Time to restore: __ minutes.
+## Endpoints
+
+| Path | Purpose |
+| --- | --- |
+| `/` | Displays the RunIt home page |
+| `/health` | Returns `{"status": "ok"}` when the HTTP server responds |
+
+The health endpoint checks that the process is responding. It does not verify that every user-facing feature is working.
+
+## Run locally with Docker
+
+```bash
+docker build -t runit-app:local .
+docker run --rm --name runit-app -p 8080:8080 runit-app:local
+```
+
+Open [http://localhost:8080](http://localhost:8080). Check the health endpoint with:
+
+```bash
+curl http://localhost:8080/health
+```
+
+## Availability check
+
+`check.sh` sends 20 requests to the home page and reports the number that return HTTP 200:
+
+```bash
+export APP_URL="https://runit-app.agreeablepond-d459ef37.northeurope.azurecontainerapps.io"
+./check.sh "$APP_URL"
+```
+
+The script considers 19 of 20 successful requests (95%) a pass. This short smoke check is not a measurement of the stated 99.5% availability objective over 30 days.
+
+## GHCR permissions and package access
+
+The workflow needs permission to publish the container image:
+
+- The workflow token must have `packages: write` in `.github/workflows/deploy.yml`.
+- In the GHCR package settings, open **Manage Actions access** and grant the repository `joinsslabs/runit` the **Write** role. `joinsslabs` is a personal GitHub account, so use the package page under `/users/`, not `/orgs/`.
+- The package appears after the first successful image push. If a workflow fails with `permission_denied: write_package`, check these workflow and package permissions.
+
+The package can remain private for GitHub Actions to push it. Render or Azure needs separate permission to pull a private image: either make the package public, or configure a registry credential with `read:packages`. A public package can be pulled by anyone. The Dockerfile's `org.opencontainers.image.source` label links the image to its source repository; it does not grant registry access.
+
+## Build and deployment
+
+The GitHub Actions workflow in `.github/workflows/deploy.yml` runs on pushes to `main` and manual dispatches. It builds an image, pushes it to GitHub Container Registry with a short commit-SHA tag, and triggers a Render deploy hook.
+
+The Azure URL above is the Azure Container Apps deployment. The current workflow deploys through Render; it does not automatically update Azure.
+
+## Rollback and incident notes
+
+To revert a problematic commit and trigger the workflow again:
+
+```bash
+git revert <commit>
+git push
+```
+
+See the [incident postmortem](postmortem.md) for the failure scenario and follow-up actions.
