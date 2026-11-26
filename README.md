@@ -53,13 +53,11 @@ The workflow needs permission to publish the container image:
 - In the GHCR package settings, open **Manage Actions access** and grant the repository `joinsslabs/runit` the **Write** role. `joinsslabs` is a personal GitHub account, so use the package page under `/users/`, not `/orgs/`.
 - The package appears after the first successful image push. If a workflow fails with `permission_denied: write_package`, check these workflow and package permissions.
 
-The package can remain private for GitHub Actions to push it. Render or Azure needs separate permission to pull a private image: either make the package public, or configure a registry credential with `read:packages`. A public package can be pulled by anyone. The Dockerfile's `org.opencontainers.image.source` label links the image to its source repository; it does not grant registry access.
+The package can remain private for GitHub Actions to push it. Azure Container Apps needs separate permission to pull a private image: either make the package public, or configure a registry credential with `read:packages`. A public package can be pulled by anyone. The workflow's `GITHUB_TOKEN` is for pushing from Actions; it does not automatically give Azure permission to pull. The Dockerfile's `org.opencontainers.image.source` label links the image to its source repository; it does not grant registry access.
 
 ## Build and deployment
 
-The GitHub Actions workflow in `.github/workflows/deploy.yml` runs on pushes to `main` and manual dispatches. It builds an image, pushes it to GitHub Container Registry with a short commit-SHA tag, and triggers a Render deploy hook.
-
-The Azure URL above is the Azure Container Apps deployment. The current workflow deploys through Render; it does not automatically update Azure.
+The GitHub Actions workflow in `.github/workflows/deploy.yml` runs on pushes to `main` and manual dispatches. It builds an image, pushes it to GitHub Container Registry with a short commit-SHA tag, signs in to Azure using the `AZURE_CREDENTIALS` repository secret, and updates the `runit-app` Container App in the `runit-rg` resource group.
 
 ## Rollback and incident notes
 
