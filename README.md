@@ -34,6 +34,14 @@ Open [http://localhost:8080](http://localhost:8080). Check the health endpoint w
 curl http://localhost:8080/health
 ```
 
+## Service-level objective (SLO)
+
+- **Service-level indicator (SLI):** the percentage of requests to `/` that return HTTP 200.
+- **Objective:** at least **99.5% successful requests in each rolling 30-day window**.
+- **Error budget:** no more than **0.5% failed requests** in that window.
+
+`/health` is a process health check, not the SLI. The `check.sh` script is a short smoke test: it sends 20 requests and passes at 19/20 (95%). It does not measure or prove the 30-day SLO.
+
 ## Availability check
 
 `check.sh` sends 20 requests to the home page and reports the number that return HTTP 200:
@@ -43,7 +51,7 @@ export APP_URL="https://runit-app.agreeablepond-d459ef37.northeurope.azurecontai
 ./check.sh "$APP_URL"
 ```
 
-The script considers 19 of 20 successful requests (95%) a pass. This short smoke check is not a measurement of the stated 99.5% availability objective over 30 days.
+The script considers 19 of 20 successful requests (95%) a pass. This short smoke check is not a measurement of the 30-day SLO.
 
 ## GHCR permissions and package access
 
